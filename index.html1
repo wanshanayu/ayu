@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>丸山湧泉香魚 | 官方訂購系統</title>
+    
+    <!-- 引入 Tailwind CSS (用於排版與響應式設計) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 引入 FontAwesome 圖示庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 引入 Google Fonts (思源黑體與思源宋體) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-cream: #FDFBF7;
+            --accent-brown: #7A5C43;
+            --accent-blue: #4A6572;
+            --text-main: #333333;
+            --border-soft: #E5E0D8;
+        }
+        
+        body {
+            background-color: var(--bg-cream);
+            color: var(--text-main);
+            font-family: 'Noto Sans TC', sans-serif;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+            overflow-y: scroll; /* 防止切換頁面時因捲軸出現造成版面跳動 */
+        }
+
+        .font-serif {
+            font-family: 'Noto Serif TC', serif;
+        }
+
+        /* 跑馬燈動畫 */
+        .marquee-container {
+            overflow: hidden;
+            white-space: nowrap;
+            width: 100%;
+            background: #fcfaf5;
+            border-bottom: 1px solid var(--border-soft);
+            padding: 8px 0;
+        }
+        
+        .marquee-content {
+            display: inline-block;
+            animation: marquee 20s linear infinite;
+            padding-left: 100%;
+            font-size: 0.875rem;
+            color: #92400e; /* text-amber-800 */
+            font-weight: 500;
+        }
+        
+        @keyframes marquee {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(-100%, 0); }
+        }
+
+        /* 表單元素細節優化 */
+        input, textarea, select {
+            border: 1px solid var(--border-soft);
+            background-color: transparent;
+            transition: all 0.2s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-brown);
+            box-shadow: 0 0 0 1px var(--accent-brown) inset;
+        }
+
+        /* 自訂捲軸 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1cbbd; border-radius: 3px; }
+        
+        .carousel-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+            border: 1px solid var(--border-soft);
+        }
+
+        /* Toast 動畫 */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translate(-50%, -10px); }
+            to { opacity: 1; transform: translate(-50%, 0); }
+        }
+        .toast-enter {
+            animation: fadeInDown 0.3s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 頂部固定區塊 (Header + Marquee) -->
+    <div id="header-area" class="fixed top-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md"></div>
+
+    <!-- 主要內容動態渲染區塊 -->
+    <!-- 特別加大 padding-top (pt-48)，讓內容與上方固定區域拉開距離 -->
+    <main id="app-root" class="pt-48 pb-32 max-w-lg mx-auto px-4 w-full"></main>
+
+    <!-- 浮動購物車提示區塊 -->
+    <div id="floating-cart-area"></div>
+
+    <!-- 系統通知 (Toast) 容器 -->
+    <div id="toast-container" class="fixed top-24 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // ==========================================
+        // 1. 系統狀態與初始資料 (State Management)
+        // ==========================================
+        const initialProducts = [
+            {
+                id: 'p1', name: '手臂公香魚', note: '頂級尺寸，肉質細嫩', desc: '來自雪山山脈湧泉養殖，水質純淨，肉質鮮甜無土味。適合鹽烤、清蒸。', visible: true,
+                variants: [
+                    { id: 'p1v1', name: '四尾盒裝', price: 350, stock: 20, images: ['https://images.unsplash.com/photo-1544378822-297eb0981977?auto=format&fit=crop&q=80&w=800'] },
+                    { id: 'p1v2', name: '五尾盒裝', price: 300, stock: 15, images: ['https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&q=80&w=800'] },
+                    { id: 'p1v3', name: '六尾盒裝', price: 300, stock: 0, images: ['https://images.unsplash.com/photo-1544378822-297eb0981977?auto=format&fit=crop&q=80&w=800'] },
+                    { id: 'p1v4', name: '買四送一優惠組合', price: 1200, stock: 10, images: ['https://images.unsplash.com/photo-1544378822-297eb0981977?auto=format&fit=crop&q=80&w=800'] },
+                ]
+            },
+            {
+                id: 'p2', name: '抱蛋母香魚', note: '滿腹魚卵，口感豐富', desc: '季節限定，魚卵飽滿，油脂豐富。', visible: true,
+                variants: [
+                    { id: 'p2v1', name: '尚未開賣', price: 0, stock: 0, images: ['https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?auto=format&fit=crop&q=80&w=800'] }
+                ]
+            },
+            {
+                id: 'p3', name: '私房甘露煮', note: '古法熬製，入口即化', desc: '特製醬汁慢火熬煮數小時，骨酥肉嫩，下酒配飯皆宜。', visible: true,
+                variants: [
+                    { id: 'p3v1', name: '單一規格 (300g)', price: 350, stock: 30, images: ['https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&q=80&w=800'] }
+                ]
+            }
+        ];
+
+        const bankList = [
+            '004 台灣銀行', '005 土地銀行', '006 合作金庫', '007 第一銀行', '008 華南銀行', 
+            '009 彰化銀行', '011 上海商銀', '012 台北富邦', '013 國泰世華', '017 兆豐銀行', 
+            '050 台灣企銀', '808 玉山銀行', '812 台新銀行', '822 中國信託', '其他'
+        ];
+
+        // 全域狀態物件 (代替 React State)
+        const state = {
+            view: 'store', // 'store', 'checkout', 'confirm', 'admin-login', 'admin'
+            products: JSON.parse(JSON.stringify(initialProducts)),
+            settings: {
+                marqueeText: '🎉 滿$1500免運費！新鮮湧泉香魚產地直送。',
+                freeShippingThreshold: 1500,
+                logoUrl: '',
+                bankInfo: { bankName: '玉山銀行', bankCode: '808', account: '1234-567-890123' },
+                adminPass: 'ayuwanshan',
+                shippingFee: 150
+            },
+            cart: [],
+            orders: [],
+            
+            // 結帳表單資料 (保留狀態)
+            checkoutForm: {
+                name: '', phone: '', lineName: '', deliveryType: 'home', paymentType: 'transfer', 
+                userBank: '', accountLast5: '', storeName: '', pickupDate: '', pickupTime: '', note: ''
+            },
+            
+            // 後台相關狀態
+            adminTab: 'orders',
+            adminSubTab: 'pending',
+            editingProductId: null,
+            editingProductForm: null
+        };
+
+        // 局部 UI 狀態 (避免每次打字都重繪整個頁面)
+        const uiState = {
+            productSelections: {}, // 紀錄前台商品卡片選擇的規格與數量 { p1: { variantId: 'p1v1', qty: 1 } }
+            carouselIndexes: {}    // 紀錄各商品輪播圖目前索引
+        };
+
+        // 初始化局部 UI 狀態
+        function initUIState() {
+            state.products.forEach(p => {
+                if(!uiState.productSelections[p.id]) {
+                    uiState.productSelections[p.id] = { variantId: p.variants[0].id, qty: 1 };
+                }
+                if(uiState.carouselIndexes[p.id] === undefined) {
+                    uiState.carouselIndexes[p.id] = 0;
+                }
+            });
+        }
+
+
+        // ==========================================
+        // 2. 核心共用功能 (Utilities)
+        // ==========================================
+
+        // 頁面切換與渲染觸發
+        function navigate(targetView) {
+            state.view = targetView;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            // 管理頁面頂部外觀切換 (後台不需要全站 Header)
+            if(targetView === 'admin' || targetView === 'admin-login') {
+                document.getElementById('header-area').innerHTML = '';
+                document.getElementById('floating-cart-area').innerHTML = '';
+                document.getElementById('app-root').className = "pt-8 pb-32 max-w-4xl mx-auto px-4 w-full"; // 後台加寬
+            } else {
+                document.getElementById('app-root').className = "pt-48 pb-32 max-w-lg mx-auto px-4 w-full"; // 前台窄版
+                renderHeader();
+                renderFloatingCart();
+            }
+            renderApp();
+        }
+
+        // 通知氣泡 (Toast)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const isSuccess = type === 'success';
+            toast.className = `toast-enter px-4 py-2 rounded-md shadow-sm border bg-white flex items-center gap-2 pointer-events-auto
+                ${isSuccess ? 'border-green-200 text-green-700' : 'border-red-200 text-red-700'}`;
+            toast.innerHTML = `
+                <i class="fa-solid ${isSuccess ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i>
+                <span class="text-sm font-medium">${message}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 計算購物車資料
+        function getCartDetails() {
+            let subtotal = 0;
+            const items = state.cart.map(item => {
+                const product = state.products.find(p => p.id === item.productId);
+                const variant = product?.variants.find(v => v.id === item.variantId);
+                if (product && variant) {
+                    subtotal += variant.price * item.quantity;
+                    return { ...item, product, variant };
+                }
+                return null;
+            }).filter(Boolean);
+            
+            const isFreeShipping = subtotal >= state.settings.freeShippingThreshold;
+            let shippingFee = 0;
+            if (state.view !== 'store' && !isFreeShipping && state.checkoutForm.deliveryType !== 'pickup') {
+                shippingFee = state.settings.shippingFee;
+            }
+            
+            return { items, subtotal, shippingFee, total: subtotal + shippingFee, isFreeShipping };
+        }
+
+
+        // ==========================================
+        // 3. 畫面渲染函式 (Renderers)
+        // ==========================================
+
+        function renderHeader() {
+            const cartCount = state.cart.reduce((sum, item) => sum + item.quantity, 0);
+            const headerHtml = `
+                <div class="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between border-b border-[var(--border-soft)]">
+                    <div class="flex items-center gap-3">
+                        <button onclick="navigate('admin-login')" class="p-2 -ml-2 text-gray-400 hover:text-amber-800 transition-colors">
+                            <i class="fa-solid fa-gear"></i>
+                        </button>
+                        <div class="flex flex-col cursor-pointer" onclick="navigate('store')">
+                            ${state.settings.logoUrl ? `<img src="${state.settings.logoUrl}" alt="logo" class="h-6 w-auto mb-1">` : ''}
+                            <span class="font-serif font-bold text-lg text-amber-900 leading-tight">丸山湧泉香魚</span>
+                            <span class="text-[10px] text-amber-700 uppercase tracking-widest leading-none">ayu wanshan</span>
+                        </div>
+                    </div>
+                    
+                    <button onclick="if(state.cart.length > 0) navigate('checkout')" class="relative p-2 text-[#4A6572] hover:bg-slate-50 rounded-full transition-colors border border-transparent hover:border-slate-200">
+                        <i class="fa-solid fa-cart-shopping text-xl"></i>
+                        ${cartCount > 0 ? `<span class="absolute top-0 right-0 bg-amber-700 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full transform translate-x-1 -translate-y-1 shadow-sm">${cartCount}</span>` : ''}
+                    </button>
+                </div>
+                
+                <div class="marquee-container">
+                    <div class="marquee-content">${state.settings.marqueeText}</div>
+                </div>
+            `;
+            document.getElementById('header-area').innerHTML = headerHtml;
+        }
+
+        function renderFloatingCart() {
+            const cartArea = document.getElementById('floating-cart-area');
+            if (state.cart.length === 0 || state.view !== 'store') {
+                cartArea.innerHTML = '';
+                return;
+            }
+            
+            const details = getCartDetails();
+            cartArea.innerHTML = `
+                <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border-soft)] shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40 animate-[fadeInDown_0.3s_ease-out]">
+                    <div class="max-w-lg mx-auto p-4 flex items-center justify-between">
+                        <div class="flex flex-col">
+                            <span class="text-sm text-gray-500">目前總計</span>
+                            <span class="font-serif text-xl text-amber-900 font-bold">$${details.subtotal}</span>
+                            <span class="text-xs text-red-500 mt-1">
+                                ${details.isFreeShipping ? '已達免運門檻 🎉' : `差 $${state.settings.freeShippingThreshold - details.subtotal} 免運`}
+                            </span>
+                        </div>
+                        <button onclick="navigate('checkout')" class="bg-[#4A6572] text-white px-8 py-3 rounded text-sm font-medium hover:bg-[#384c56] transition-colors shadow-sm">
+                            前往結帳
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        // ---- Store (商品選購) ----
+        function renderStore() {
+            let html = `
+                <div class="mb-8 flex items-center justify-center">
+                    <h2 class="font-serif text-2xl text-[#4A6572] relative inline-block">
+                        <span class="relative z-10 bg-[var(--bg-cream)] px-4">商品選購</span>
+                        <span class="absolute top-1/2 left-0 w-full h-[1px] bg-[var(--border-soft)] -z-0"></span>
+                    </h2>
+                </div>
+                <div class="space-y-8">
+            `;
+
+            state.products.filter(p => p.visible).forEach(product => {
+                const ui = uiState.productSelections[product.id];
+                const selectedVariant = product.variants.find(v => v.id === ui.variantId) || product.variants[0];
+                const isOutOfStock = selectedVariant.stock === 0;
+                
+                // Carousel Logic
+                const images = selectedVariant.images || [];
+                const cIdx = uiState.carouselIndexes[product.id] % images.length || 0;
+                let carouselHtml = '';
+                if (images.length === 0) {
+                    carouselHtml = `<div class="w-full h-48 bg-[#f5f1e8] flex items-center justify-center text-gray-400 text-sm">無圖片</div>`;
+                } else {
+                    carouselHtml = `
+                        <div class="carousel-container h-56 group relative">
+                            <img src="${images[cIdx]}" alt="${product.name}" class="w-full h-full object-cover transition-opacity duration-300">
+                            ${images.length > 1 ? `
+                                <button onclick="changeCarousel('${product.id}', -1)" class="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-white/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-solid fa-chevron-left text-xs"></i></button>
+                                <button onclick="changeCarousel('${product.id}', 1)" class="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-white/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-solid fa-chevron-right text-xs"></i></button>
+                                <div class="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                                    ${images.map((_, i) => `<div class="w-1.5 h-1.5 rounded-full ${i === cIdx ? 'bg-amber-800' : 'bg-white/60'}"></div>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div class="bg-white rounded-xl border border-[var(--border-soft)] overflow-hidden shadow-sm flex flex-col">
+                        <div class="p-4 border-b border-[var(--border-soft)]">
+                            <span class="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded inline-block mb-2 font-medium">${product.note}</span>
+                            <h3 class="font-serif text-xl text-[#4A6572] font-bold mb-1">${product.name}</h3>
+                            <p class="text-sm text-gray-500 leading-relaxed">${product.desc}</p>
+                        </div>
+                        <div class="p-4 flex flex-col sm:flex-row gap-4">
+                            <div class="w-full sm:w-1/2">${carouselHtml}</div>
+                            
+                            <div class="w-full sm:w-1/2 flex flex-col justify-between space-y-4">
+                                <div>
+                                    <label class="block text-xs text-gray-500 mb-1">選擇規格</label>
+                                    <select onchange="updateVariantSelection('${product.id}', this.value)" class="w-full p-2 border border-[var(--border-soft)] rounded text-sm bg-white focus:border-amber-800 outline-none">
+                                        ${product.variants.map(v => `<option value="${v.id}" ${v.id === selectedVariant.id ? 'selected' : ''} ${v.stock === 0 ? 'disabled' : ''}>${v.name} - $${v.price} ${v.stock === 0 ? '(補貨中)' : ''}</option>`).join('')}
+                                    </select>
+                                </div>
+                                <div class="flex items-end justify-between gap-4">
+                                    <div class="flex-1">
+                                        <label class="block text-xs text-gray-500 mb-1">數量</label>
+                                        <div class="flex items-center border border-[var(--border-soft)] rounded overflow-hidden h-10">
+                                            <button onclick="updateQty('${product.id}', -1)" class="px-3 bg-slate-50 text-gray-600 hover:bg-slate-100 h-full border-r border-[var(--border-soft)]" ${isOutOfStock ? 'disabled' : ''}><i class="fa-solid fa-minus text-xs"></i></button>
+                                            <span class="flex-1 text-center text-sm font-medium bg-white leading-[2.5rem]">${isOutOfStock ? 0 : ui.qty}</span>
+                                            <button onclick="updateQty('${product.id}', 1)" class="px-3 bg-slate-50 text-gray-600 hover:bg-slate-100 h-full border-l border-[var(--border-soft)]" ${isOutOfStock ? 'disabled' : ''}><i class="fa-solid fa-plus text-xs"></i></button>
+                                        </div>
+                                    </div>
+                                    <button onclick="addToCart('${product.id}')" ${isOutOfStock ? 'disabled' : ''} class="h-10 px-6 rounded text-sm font-medium transition-colors whitespace-nowrap ${isOutOfStock ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-amber-800 text-white hover:bg-amber-900 shadow-sm'}">
+                                        ${isOutOfStock ? '補貨中' : '加入購物車'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        // ---- Checkout (結帳作業) ----
+        // 為了防止輸入法跳掉，我們將 input 的 onchange/oninput 事件設定為直接更新 state.checkoutForm，但「不」觸發 renderApp()
+        function renderCheckout() {
+            const details = getCartDetails();
+            const f = state.checkoutForm;
+            const bankOptions = `<option value="">請選擇</option>` + bankList.map(b => `<option value="${b}" ${f.userBank === b ? 'selected' : ''}>${b}</option>`).join('');
+
+            // 動態產生條件區塊
+            let deliveryOptionsHtml = '';
+            
+            if (f.deliveryType === 'home') {
+                deliveryOptionsHtml = `
+                    <div class="bg-[#fcfaf5] p-3 rounded text-sm border border-[#eee7d5] mt-4 animate-[fadeInDown_0.2s_ease-out]">
+                        <p class="font-medium text-amber-900 mb-2">宅配 (須先匯款)</p>
+                        <div class="text-gray-600 space-y-1 mb-4 text-xs">
+                            <p>銀行：${state.settings.bankInfo.bankName} (${state.settings.bankInfo.bankCode})</p>
+                            <p class="flex items-center gap-2">帳號：${state.settings.bankInfo.account}
+                                <button type="button" onclick="copyText('${state.settings.bankInfo.account}')" class="px-2 py-1 bg-white border rounded text-gray-500 hover:text-amber-800"><i class="fa-regular fa-copy"></i></button>
+                            </p>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">您的匯款銀行</label>
+                                <select onchange="updateForm('userBank', this.value, false)" class="w-full p-2 text-sm rounded bg-white">${bankOptions}</select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">匯款帳號後五碼</label>
+                                <input type="text" maxlength="5" value="${f.accountLast5}" oninput="updateForm('accountLast5', this.value, false)" class="w-full p-2 text-sm rounded bg-white" placeholder="對帳用">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (f.deliveryType === '711') {
+                deliveryOptionsHtml = `
+                    <div class="space-y-4 mt-4 animate-[fadeInDown_0.2s_ease-out]">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">付款方式</label>
+                            <select onchange="updateForm('paymentType', this.value, true)" class="w-full p-2 text-sm rounded">
+                                <option value="cod" ${f.paymentType==='cod'?'selected':''}>貨到付款</option>
+                                <option value="transfer" ${f.paymentType==='transfer'?'selected':''}>先匯款後出貨</option>
+                            </select>
+                        </div>
+                        ${f.paymentType === 'transfer' ? `
+                            <div class="bg-[#fcfaf5] p-3 rounded text-sm border border-[#eee7d5]">
+                                <div class="text-gray-600 space-y-1 mb-4 text-xs">
+                                    <p>銀行：${state.settings.bankInfo.bankName} (${state.settings.bankInfo.bankCode})</p>
+                                    <p class="flex items-center gap-2">帳號：${state.settings.bankInfo.account} <button type="button" onclick="copyText('${state.settings.bankInfo.account}')" class="px-2 py-1 bg-white border rounded"><i class="fa-regular fa-copy"></i></button></p>
+                                </div>
+                                <div class="space-y-3">
+                                    <div><label class="block text-xs text-gray-500 mb-1">您的匯款銀行</label><select onchange="updateForm('userBank', this.value, false)" class="w-full p-2 text-sm rounded bg-white">${bankOptions}</select></div>
+                                    <div><label class="block text-xs text-gray-500 mb-1">匯款帳號後五碼</label><input type="text" maxlength="5" value="${f.accountLast5}" oninput="updateForm('accountLast5', this.value, false)" class="w-full p-2 text-sm rounded bg-white"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">預計寄達 7-11 門市 (名稱或店號)</label>
+                            <input type="text" value="${f.storeName}" oninput="updateForm('storeName', this.value, false)" class="w-full p-2 text-sm rounded" placeholder="例如：丸山門市 或 123456">
+                        </div>
+                    </div>
+                `;
+            } else if (f.deliveryType === 'pickup') {
+                
+                // 產生營業時間選項 (08:00 - 18:00)
+                let timeOptions = '<option value="">選擇時段</option>';
+                for(let i=0; i<=20; i++){
+                    let hr = Math.floor(i/2) + 8;
+                    let min = i%2 === 0 ? '00' : '30';
+                    let tStr = `${hr.toString().padStart(2,'0')}:${min}`;
+                    timeOptions += `<option value="${tStr}" ${f.pickupTime===tStr?'selected':''}>${tStr}</option>`;
+                }
+
+                deliveryOptionsHtml = `
+                    <div class="space-y-4 mt-4 animate-[fadeInDown_0.2s_ease-out]">
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <div class="flex-1">
+                                <label class="block text-xs text-gray-500 mb-1">自取日期</label>
+                                <input type="date" value="${f.pickupDate}" onchange="updateForm('pickupDate', this.value, false)" min="${new Date().toISOString().split('T')[0]}" class="w-full p-2 text-sm rounded">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs text-gray-500 mb-1">自取時段 (08:00-18:00)</label>
+                                <select onchange="updateForm('pickupTime', this.value, false)" class="w-full p-2 text-sm rounded">${timeOptions}</select>
+                            </div>
+                        </div>
+
+                        <!-- Google Map Embed -->
+                        <div class="bg-slate-100 rounded overflow-hidden border border-[var(--border-soft)]">
+                            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3615.002792610731!2d121.7371801!3d24.7574971!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjTCsDQ1JzI3LjAiTiAxMjHCsDQ0JzEzLjgiRQ!5e0!3m2!1szh-TW!2stw!4v1620000000000!5m2!1szh-TW!2stw" width="100%" height="150" style="border:0;" allowfullscreen="" loading="lazy"></iframe>
+                            <div class="p-2 text-xs text-center text-[#4A6572] bg-white flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-location-dot"></i> <a href="https://share.google/4iC3doLLJMYrxQeFH" target="_blank" rel="noreferrer" class="underline">開啟 Google Map 導航</a>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">付款方式</label>
+                            <select onchange="updateForm('paymentType', this.value, true)" class="w-full p-2 text-sm rounded">
+                                <option value="onsite" ${f.paymentType==='onsite'?'selected':''}>現場付款</option>
+                                <option value="transfer" ${f.paymentType==='transfer'?'selected':''}>先匯款</option>
+                            </select>
+                        </div>
+                        ${f.paymentType === 'transfer' ? `
+                            <div class="bg-[#fcfaf5] p-3 rounded text-sm border border-[#eee7d5]">
+                                <div class="text-gray-600 space-y-1 mb-4 text-xs">
+                                    <p>銀行：${state.settings.bankInfo.bankName} (${state.settings.bankInfo.bankCode})</p>
+                                    <p class="flex items-center gap-2">帳號：${state.settings.bankInfo.account} <button type="button" onclick="copyText('${state.settings.bankInfo.account}')" class="px-2 py-1 bg-white border rounded"><i class="fa-regular fa-copy"></i></button></p>
+                                </div>
+                                <div class="space-y-3">
+                                    <div><label class="block text-xs text-gray-500 mb-1">您的匯款銀行</label><select onchange="updateForm('userBank', this.value, false)" class="w-full p-2 text-sm rounded bg-white">${bankOptions}</select></div>
+                                    <div><label class="block text-xs text-gray-500 mb-1">匯款帳號後五碼</label><input type="text" maxlength="5" value="${f.accountLast5}" oninput="updateForm('accountLast5', this.value, false)" class="w-full p-2 text-sm rounded bg-white"></div>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="mb-6 flex items-center">
+                    <button onclick="navigate('store')" class="p-2 -ml-2 text-gray-500 hover:text-amber-800"><i class="fa-solid fa-chevron-left text-xl"></i></button>
+                    <h2 class="font-serif text-xl text-amber-900 ml-2">結帳作業</h2>
+                </div>
+
+                <!-- 購物車清單 -->
+                <div class="border border-[var(--border-soft)] rounded-lg p-4 bg-white mb-6 shadow-sm">
+                    <div class="flex justify-between items-center mb-4 border-b border-[var(--border-soft)] pb-2">
+                        <h3 class="font-medium text-[#4A6572]">購物車清單</h3>
+                        <button onclick="navigate('store')" class="text-xs text-amber-700 underline underline-offset-2">修改購物車</button>
+                    </div>
+                    <div class="space-y-3">
+                        ${details.items.map(item => `
+                            <div class="flex justify-between items-start text-sm">
+                                <div>
+                                    <div class="font-medium text-gray-800">${item.product.name}</div>
+                                    <div class="text-gray-500 text-xs mt-0.5">${item.variant.name} x ${item.quantity}</div>
+                                </div>
+                                <div class="font-serif text-amber-900">$${item.variant.price * item.quantity}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- 收件人基本資料 -->
+                    <section class="border border-[var(--border-soft)] rounded-lg p-4 bg-white shadow-sm">
+                        <h3 class="font-serif text-lg text-[#4A6572] mb-4">收件人基本資料</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">LINE 顯示名稱</label>
+                                <input type="text" value="${f.lineName}" oninput="updateForm('lineName', this.value, false)" placeholder="(若系統無自動抓取請手動填入)" class="w-full p-2 text-sm rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">收件人姓名 <span class="text-red-500">*</span></label>
+                                <input type="text" value="${f.name}" oninput="updateForm('name', this.value, false)" class="w-full p-2 text-sm rounded">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-500 mb-1">連絡電話 <span class="text-red-500">*</span></label>
+                                <input type="tel" value="${f.phone}" oninput="updateForm('phone', this.value, false)" class="w-full p-2 text-sm rounded">
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 運送與付款 -->
+                    <section class="border border-[var(--border-soft)] rounded-lg p-4 bg-white shadow-sm">
+                        <h3 class="font-serif text-lg text-[#4A6572] mb-4">運送與付款方式</h3>
+                        <div class="grid grid-cols-3 gap-2">
+                            ${['home', '711', 'pickup'].map(type => `
+                                <button type="button" onclick="changeDeliveryType('${type}')" class="p-2 text-sm text-center rounded border transition-colors ${f.deliveryType === type ? 'bg-[#4A6572] text-white border-[#4A6572]' : 'border-[var(--border-soft)] text-gray-500 hover:bg-slate-50'}">
+                                    ${type === 'home' ? '宅配' : type === '711' ? '7-11店到店' : '預約自取'}
+                                </button>
+                            `).join('')}
+                        </div>
+                        ${deliveryOptionsHtml}
+                    </section>
+
+                    <!-- 訂單備註 -->
+                    <section class="border border-[var(--border-soft)] rounded-lg p-4 bg-white shadow-sm">
+                        <label class="block text-xs text-gray-500 mb-2">訂單備註</label>
+                        <textarea rows="3" oninput="updateForm('note', this.value, false)" class="w-full p-2 text-sm rounded resize-none" placeholder="有什麼想告訴賣家的嗎？">${f.note}</textarea>
+                    </section>
+
+                    <!-- 總計 -->
+                    <section class="border border-[var(--border-soft)] rounded-lg p-4 bg-[#fdfbf9] shadow-sm">
+                        <div class="space-y-2 text-sm text-gray-600">
+                            <div class="flex justify-between"><span>商品小計</span><span>$${details.subtotal}</span></div>
+                            <div class="flex justify-between">
+                                <span>運費 (${f.deliveryType === 'pickup' ? '自取' : '宅配/店到店'})</span>
+                                <span>${details.shippingFee === 0 ? '免運' : `$${details.shippingFee}`}</span>
+                            </div>
+                            <div class="pt-2 mt-2 border-t border-[var(--border-soft)] flex justify-between items-center">
+                                <span class="font-medium text-amber-900">總付款金額</span>
+                                <span class="font-serif text-xl font-bold text-amber-900">$${details.total}</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- 送出按鈕 -->
+                    <button onclick="submitOrder()" class="w-full bg-amber-800 text-white py-4 rounded-md font-medium text-lg hover:bg-amber-900 transition-colors shadow-md mt-4">
+                        送出訂單
+                    </button>
+                </div>
+            `;
+        }
+
+        // ---- Confirm (訂單完成確認頁) ----
+        function renderConfirm() {
+            const order = state.orders[0];
+            if (!order) return '';
+
+            let lineText = `【丸山湧泉香魚 訂單確認】\n訂單編號：${order.id}\n姓名：${order.customer.name}\n電話：${order.customer.phone}\n`;
+            if (order.customer.lineName) lineText += `LINE：${order.customer.lineName}\n`;
+            
+            const dType = order.customer.deliveryType;
+            const pType = order.customer.paymentType;
+            lineText += `運送：${dType === 'home' ? '宅配' : dType === '711' ? '7-11店到店' : '預約自取'} (${pType === 'transfer' ? '匯款' : pType === 'cod' ? '貨到付款' : '現場付款'})\n`;
+            
+            if (dType === 'pickup') lineText += `自取時間：${order.customer.pickupDate} ${order.customer.pickupTime}\n`;
+            if (dType === '711') lineText += `門市：${order.customer.storeName}\n`;
+            if (pType === 'transfer') lineText += `匯款後五碼：${order.customer.userBank} - ${order.customer.accountLast5}\n`;
+            
+            lineText += `\n【商品明細】\n`;
+            order.items.forEach(item => { lineText += `- ${item.product.name} (${item.variant.name}) x${item.quantity}\n`; });
+            lineText += `\n總金額：$${order.total}`;
+            if(order.customer.note) lineText += `\n備註：${order.customer.note}`;
+            
+            const lineUrl = `line://msg/text/?${encodeURIComponent(lineText)}`;
+
+            return `
+                <div class="flex flex-col items-center">
+                    <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+                        <i class="fa-solid fa-check text-3xl"></i>
+                    </div>
+                    <h2 class="font-serif text-2xl text-amber-900 mb-1">訂單已成功送出！</h2>
+                    <p class="text-sm text-gray-500 mb-8">訂單資料已記錄，請透過下方按鈕傳送給商家。</p>
+
+                    <div class="w-full border border-[var(--border-soft)] rounded-lg p-5 bg-white mb-8 space-y-3 shadow-sm">
+                        <div class="flex justify-between border-b border-[var(--border-soft)] pb-3">
+                            <span class="text-gray-500 text-sm">訂單編號</span>
+                            <span class="font-medium font-serif text-[#4A6572]">${order.id}</span>
+                        </div>
+                        <div class="text-sm space-y-2 text-gray-700">
+                            <p><span class="text-gray-400 w-16 inline-block">姓名</span> ${order.customer.name}</p>
+                            <p><span class="text-gray-400 w-16 inline-block">金額</span> <span class="text-amber-800 font-bold">$${order.total}</span></p>
+                        </div>
+                    </div>
+
+                    <a href="${lineUrl}" class="w-full bg-[#00B900] text-white py-4 rounded-md font-medium text-center hover:bg-[#009900] transition-colors mb-4 flex items-center justify-center gap-2 shadow-sm">
+                        將訂單資料傳送給商家 (LINE)
+                    </a>
+
+                    <div class="flex gap-4 w-full">
+                        <button onclick="state.cart = []; navigate('store');" class="flex-1 border border-amber-800 text-amber-800 py-3 rounded-md font-medium text-sm hover:bg-amber-50 transition-colors">
+                            返回繼續訂購
+                        </button>
+                        <a href="https://lin.ee/xQ1XPT9" target="_blank" rel="noreferrer" class="flex-1 border border-[#4A6572] text-[#4A6572] py-3 rounded-md font-medium text-sm text-center hover:bg-slate-50 transition-colors">
+                            官方 LINE 聊天室
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdminLogin() {
+            return `
+                <div class="pt-20 flex flex-col items-center">
+                    <div class="w-12 h-12 bg-slate-100 text-[#4A6572] rounded-full flex items-center justify-center mb-6 shadow-sm">
+                        <i class="fa-solid fa-gear text-xl"></i>
+                    </div>
+                    <h2 class="font-serif text-xl text-amber-900 mb-6">商家後台登入</h2>
+                    <input type="password" id="admin-pw" placeholder="請輸入管理員密碼" class="w-full max-w-xs p-3 border border-[var(--border-soft)] rounded mb-4 text-center tracking-widest bg-white">
+                    <div class="flex gap-2 w-full max-w-xs">
+                        <button onclick="navigate('store')" class="flex-1 border border-gray-300 text-gray-500 py-3 rounded hover:bg-gray-50 transition-colors">取消</button>
+                        <button onclick="loginAdmin()" class="flex-1 bg-[#4A6572] text-white py-3 rounded hover:bg-[#384c56] transition-colors shadow-sm">登入</button>
+                    </div>
+                </div>
+            `;
+        }
+
+
+        // ---- Admin (管理後台) ----
+        function renderAdmin() {
+            let contentHtml = '';
+            
+            // 訂單管理分頁
+            if(state.adminTab === 'orders') {
+                const subTabs = ['pending:對帳中', 'prep:備貨中', 'shipped:已出貨', 'done:已完成', 'stats:報表統計'];
+                contentHtml += `
+                    <div class="flex flex-wrap gap-2 mb-4 border-b border-[var(--border-soft)] pb-4">
+                        ${subTabs.map(opt => {
+                            const [val, label] = opt.split(':');
+                            const isActive = state.adminSubTab === val;
+                            const count = val !== 'stats' ? state.orders.filter(o => o.status === val).length : '';
+                            return `<button onclick="state.adminSubTab='${val}'; renderApp();" class="px-3 py-1.5 rounded text-sm transition-colors ${isActive ? 'bg-[#4A6572] text-white' : 'bg-slate-100 text-gray-600 hover:bg-slate-200'}">${label} ${count !== '' ? `(${count})` : ''}</button>`;
+                        }).join('')}
+                    </div>
+                `;
+
+                if (state.adminSubTab === 'stats') {
+                    // 簡單統計呈現 (全部資料)
+                    let stats = {};
+                    state.orders.forEach(o => o.items.forEach(i => {
+                        let key = `${i.product.name} - ${i.variant.name}`;
+                        if(!stats[key]) stats[key] = {qty: 0, rev: 0};
+                        stats[key].qty += i.quantity;
+                        stats[key].rev += (i.variant.price * i.quantity);
+                    }));
+                    contentHtml += `
+                        <div class="bg-white border border-[var(--border-soft)] rounded-lg overflow-hidden mt-4">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-[#fcfaf5] text-gray-600 border-b border-[var(--border-soft)]">
+                                    <tr><th class="p-3 font-medium">商品與規格</th><th class="p-3 font-medium text-right">銷售數量</th><th class="p-3 font-medium text-right">銷售額</th></tr>
+                                </thead>
+                                <tbody>
+                                    ${Object.keys(stats).length===0 ? `<tr><td colspan="3" class="p-4 text-center text-gray-400">尚無資料</td></tr>` : 
+                                    Object.entries(stats).sort((a,b)=>b[1].rev - a[1].rev).map(([k,v]) => `
+                                        <tr class="border-b border-[var(--border-soft)] last:border-0 hover:bg-slate-50">
+                                            <td class="p-3 text-gray-700">${k}</td><td class="p-3 text-right font-medium">${v.qty}</td><td class="p-3 text-right text-amber-900">$${v.rev}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } else {
+                    const list = state.orders.filter(o => o.status === state.adminSubTab);
+                    if(list.length === 0) contentHtml += `<div class="text-center py-10 text-gray-400 text-sm">此狀態尚無訂單</div>`;
+                    else {
+                        list.forEach(order => {
+                            contentHtml += `
+                                <div class="border border-[var(--border-soft)] rounded-lg p-4 bg-[#fcfaf5] mb-4 shadow-sm">
+                                    <div class="flex justify-between items-start mb-3 border-b border-[var(--border-soft)] pb-2">
+                                        <div><span class="font-serif text-lg font-bold text-amber-900 mr-2">#${order.id}</span><span class="text-xs text-gray-500">${new Date(order.date).toLocaleString()}</span></div>
+                                        <div class="flex gap-2">
+                                            <select onchange="updateOrderStatus('${order.id}', this.value)" class="text-xs p-1 border rounded bg-white text-gray-700">
+                                                <option value="pending" ${order.status==='pending'?'selected':''}>對帳中</option>
+                                                <option value="prep" ${order.status==='prep'?'selected':''}>備貨中</option>
+                                                <option value="shipped" ${order.status==='shipped'?'selected':''}>已出貨</option>
+                                                <option value="done" ${order.status==='done'?'selected':''}>已完成</option>
+                                            </select>
+                                            <button onclick="deleteOrder('${order.id}')" class="p-1 text-red-400 hover:bg-red-50 rounded"><i class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-3">
+                                        <div>
+                                            <p class="text-gray-500 mb-1">客戶資訊</p>
+                                            <p class="font-medium">${order.customer.name} / ${order.customer.phone}</p>
+                                            <p class="text-xs text-gray-400">LINE: ${order.customer.lineName || '-'}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-gray-500 mb-1">配送方式</p>
+                                            <p class="font-medium">${order.customer.deliveryType === 'home' ? '宅配' : order.customer.deliveryType === '711' ? '7-11店到店' : '預約自取'} (${order.customer.paymentType === 'transfer' ? '匯款' : order.customer.paymentType === 'cod' ? '貨到付款' : '現場付款'})</p>
+                                        </div>
+                                    </div>
+                                    <div class="bg-white p-2 rounded border border-[var(--border-soft)] mb-2">
+                                        ${order.items.map(item => `<div class="flex justify-between text-sm"><span>${item.product.name} (${item.variant.name})</span><span>x${item.quantity}</span></div>`).join('')}
+                                    </div>
+                                    <div class="flex justify-between items-center mt-2 pt-2 border-t border-[var(--border-soft)]">
+                                        <p class="text-xs text-gray-500">備註: ${order.customer.note || '無'}</p>
+                                        <p class="font-bold text-amber-900">總計: $${order.total}</p>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+            } 
+            // 商品管理分頁
+            else if (state.adminTab === 'products') {
+                if (state.editingProductId) {
+                    // Edit Mode (Simplified Template for demo)
+                    contentHtml += `
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center mb-4 border-b border-[var(--border-soft)] pb-4">
+                                <h3 class="font-serif text-lg font-bold text-amber-900">編輯商品</h3>
+                                <div class="flex gap-2">
+                                    <button onclick="state.editingProductId=null; renderApp();" class="px-3 py-1.5 rounded border text-gray-600 text-sm hover:bg-slate-50">取消</button>
+                                    <button onclick="saveProductEdit()" class="px-3 py-1.5 rounded bg-[#4A6572] text-white text-sm hover:bg-[#384c56]">儲存</button>
+                                </div>
+                            </div>
+                            <div class="p-4 bg-slate-50 rounded border text-sm text-gray-600 text-center">
+                                系統展示中，進階編輯功能(包含新增圖片、規格修改)建議於完整系統中實作。點擊取消返回。
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    state.products.forEach(p => {
+                        contentHtml += `
+                            <div class="border border-[var(--border-soft)] rounded-lg p-4 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 shadow-sm hover:shadow-md transition-shadow">
+                                <div>
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="w-2 h-2 rounded-full ${p.visible ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                                        <h4 class="font-serif font-bold text-[#4A6572] text-lg">${p.name}</h4>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mb-2">${p.note}</p>
+                                    <div class="flex flex-wrap gap-2 text-xs">
+                                        ${p.variants.map(v => `<span class="bg-slate-100 px-2 py-1 rounded text-gray-600 border border-slate-200">${v.name} : $${v.price} (庫存:${v.stock})</span>`).join('')}
+                                    </div>
+                                </div>
+                                <div class="flex gap-2 w-full sm:w-auto">
+                                    <button onclick="toggleProductVisibility('${p.id}')" class="flex-1 sm:flex-none px-3 py-1.5 rounded border text-sm ${p.visible ? 'border-amber-800 text-amber-800' : 'bg-gray-100 text-gray-500 border-gray-200'}">${p.visible ? '下架' : '上架'}</button>
+                                    <button onclick="state.editingProductId='${p.id}'; renderApp();" class="flex-1 sm:flex-none px-3 py-1.5 rounded bg-slate-100 text-[#4A6572] hover:bg-slate-200 text-sm">編輯</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+            }
+            // 全域設定分頁
+            else if (state.adminTab === 'settings') {
+                const s = state.settings;
+                contentHtml += `
+                    <div class="space-y-6 max-w-2xl">
+                        <section class="space-y-4 border border-[var(--border-soft)] p-4 rounded-lg bg-white shadow-sm">
+                            <h3 class="font-serif text-lg text-[#4A6572] border-b border-[var(--border-soft)] pb-2">網站外觀與跑馬燈</h3>
+                            <div><label class="block text-xs text-gray-500 mb-1">跑馬燈文字</label><input type="text" id="set-marquee" value="${s.marqueeText}" class="w-full p-2 border rounded text-sm"></div>
+                        </section>
+                        <section class="space-y-4 border border-[var(--border-soft)] p-4 rounded-lg bg-white shadow-sm">
+                            <h3 class="font-serif text-lg text-[#4A6572] border-b border-[var(--border-soft)] pb-2">結帳與運費設定</h3>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div><label class="block text-xs text-gray-500 mb-1">免運門檻金額</label><input type="number" id="set-free" value="${s.freeShippingThreshold}" class="w-full p-2 border rounded text-sm"></div>
+                                <div><label class="block text-xs text-gray-500 mb-1">基本運費</label><input type="number" id="set-fee" value="${s.shippingFee}" class="w-full p-2 border rounded text-sm"></div>
+                            </div>
+                        </section>
+                        <button onclick="saveSettings()" class="w-full bg-[#4A6572] text-white py-3 rounded-md font-medium hover:bg-[#384c56] shadow-sm mt-4">儲存所有設定</button>
+                    </div>
+                `;
+            }
+
+            const tabsHtml = [
+                {id: 'orders', icon: 'fa-list-check', label: '訂單管理'},
+                {id: 'products', icon: 'fa-box', label: '商品管理'},
+                {id: 'settings', icon: 'fa-sliders', label: '全域設定'}
+            ].map(t => `
+                <button onclick="state.adminTab='${t.id}'; renderApp();" class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${state.adminTab === t.id ? 'bg-[#4A6572] text-white' : 'bg-white text-gray-500 border border-[var(--border-soft)] hover:bg-slate-100'}">
+                    <i class="fa-solid ${t.icon}"></i> ${t.label}
+                </button>
+            `).join('');
+
+            return `
+                <div class="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-[var(--border-soft)]">
+                    <h2 class="font-serif text-xl text-amber-900 font-bold">管理控制台</h2>
+                    <button onclick="navigate('store')" class="flex items-center gap-2 text-sm text-gray-500 hover:text-red-500">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> 登出返回
+                    </button>
+                </div>
+                <div class="flex gap-2 mb-6 overflow-x-auto pb-2">${tabsHtml}</div>
+                <div class="bg-white rounded-lg shadow-sm border border-[var(--border-soft)] p-4 sm:p-6 min-h-[50vh]">
+                    ${contentHtml}
+                </div>
+            `;
+        }
+
+        // 總渲染調度 (Main Render Logic)
+        function renderApp() {
+            const root = document.getElementById('app-root');
+            let html = '';
+            
+            switch(state.view) {
+                case 'store': html = renderStore(); break;
+                case 'checkout': html = renderCheckout(); break;
+                case 'confirm': html = renderConfirm(); break;
+                case 'admin-login': html = renderAdminLogin(); break;
+                case 'admin': html = renderAdmin(); break;
+            }
+            
+            root.innerHTML = html;
+            
+            // Header/Cart 的獨立重繪 (如果是在前台)
+            if(state.view !== 'admin' && state.view !== 'admin-login') {
+                renderHeader();
+                renderFloatingCart();
+            }
+        }
+
+
+        // ==========================================
+        // 4. 事件處理器 (Event Handlers)
+        // ==========================================
+
+        // -- 前台商品操作 --
+        function updateVariantSelection(productId, variantId) {
+            uiState.productSelections[productId].variantId = variantId;
+            uiState.productSelections[productId].qty = 1;
+            renderApp();
+        }
+
+        function updateQty(productId, delta) {
+            const ui = uiState.productSelections[productId];
+            const product = state.products.find(p => p.id === productId);
+            const variant = product.variants.find(v => v.id === ui.variantId);
+            
+            let newQty = ui.qty + delta;
+            if (newQty >= 1 && newQty <= variant.stock) {
+                ui.qty = newQty;
+                renderApp();
+            }
+        }
+
+        function changeCarousel(productId, dir) {
+            const product = state.products.find(p => p.id === productId);
+            const variantId = uiState.productSelections[productId].variantId;
+            const images = product.variants.find(v => v.id === variantId).images || [];
+            if(images.length <= 1) return;
+            
+            let current = uiState.carouselIndexes[productId] || 0;
+            current += dir;
+            if (current < 0) current = images.length - 1;
+            if (current >= images.length) current = 0;
+            uiState.carouselIndexes[productId] = current;
+            renderApp();
+        }
+
+        function addToCart(productId) {
+            const ui = uiState.productSelections[productId];
+            const existing = state.cart.find(item => item.productId === productId && item.variantId === ui.variantId);
+            
+            if (existing) {
+                existing.quantity += ui.qty;
+            } else {
+                state.cart.push({ productId, variantId: ui.variantId, quantity: ui.qty });
+            }
+            showToast('已加入購物車');
+            renderHeader(); // 更新購物車數量徽章
+            renderFloatingCart(); // 顯示底部浮動列
+        }
+
+        // -- 結帳表單操作 --
+        // updateForm 用於 oninput，避免重繪導致輸入法跳掉 (needRender = false)
+        function updateForm(field, value, needRender) {
+            state.checkoutForm[field] = value;
+            if (needRender) renderApp();
+        }
+
+        function changeDeliveryType(type) {
+            state.checkoutForm.deliveryType = type;
+            if (type === 'home') state.checkoutForm.paymentType = 'transfer';
+            else if (type === '711') state.checkoutForm.paymentType = 'cod';
+            else state.checkoutForm.paymentType = 'onsite';
+            renderApp(); // 切換結構需重繪
+        }
+
+        function copyText(text) {
+            navigator.clipboard.writeText(text);
+            showToast('帳號已複製');
+        }
+
+        function submitOrder() {
+            const f = state.checkoutForm;
+            if (!f.name || !f.phone) { showToast('請填寫收件人姓名與電話', 'error'); return; }
+            if (f.paymentType === 'transfer' && (!f.userBank || !f.accountLast5)) { showToast('請填寫匯款資訊', 'error'); return; }
+            if (f.deliveryType === '711' && !f.storeName) { showToast('請填寫門市資訊', 'error'); return; }
+            if (f.deliveryType === 'pickup' && (!f.pickupDate || !f.pickupTime)) { showToast('請選擇自取時間', 'error'); return; }
+            
+            // 產生流水號
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const rnd = String(Math.floor(Math.random() * 99)).padStart(2, '0');
+            const orderId = `${yy}${mm}${dd}${min}${rnd}`;
+
+            const details = getCartDetails();
+            const newOrder = {
+                id: orderId,
+                date: now.toISOString(),
+                status: 'pending',
+                customer: JSON.parse(JSON.stringify(f)), // 拷貝
+                items: JSON.parse(JSON.stringify(details.items)),
+                total: details.total
+            };
+
+            state.orders.unshift(newOrder); // 最新訂單放前面
+            navigate('confirm');
+        }
+
+        // -- 後台操作 --
+        function loginAdmin() {
+            const pw = document.getElementById('admin-pw').value;
+            if (pw === state.settings.adminPass) {
+                showToast('登入成功');
+                navigate('admin');
+            } else {
+                showToast('密碼錯誤', 'error');
+            }
+        }
+
+        function updateOrderStatus(id, status) {
+            const order = state.orders.find(o => o.id === id);
+            if(order) order.status = status;
+        }
+
+        function deleteOrder(id) {
+            if(confirm('確定刪除此訂單？')) {
+                state.orders = state.orders.filter(o => o.id !== id);
+                renderApp();
+                showToast('訂單已刪除');
+            }
+        }
+
+        function toggleProductVisibility(id) {
+            const prod = state.products.find(p => p.id === id);
+            if(prod) prod.visible = !prod.visible;
+            renderApp();
+            showToast('商品狀態已更新');
+        }
+
+        function saveSettings() {
+            state.settings.marqueeText = document.getElementById('set-marquee').value;
+            state.settings.freeShippingThreshold = Number(document.getElementById('set-free').value);
+            state.settings.shippingFee = Number(document.getElementById('set-fee').value);
+            showToast('全域設定已儲存');
+            renderApp(); // 讓 header 的跑馬燈也能更新
+        }
+
+        // ==========================================
+        // 5. 啟動程序
+        // ==========================================
+        window.onload = () => {
+            initUIState();
+            // 模擬抓取 LINE ID (延遲 1 秒)
+            setTimeout(() => {
+                if(!state.checkoutForm.lineName) state.checkoutForm.lineName = ''; 
+            }, 1000);
+            
+            navigate('store'); // 初始進入首頁
+        };
+    </script>
+</body>
+</html>
