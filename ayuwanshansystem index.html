@@ -1,0 +1,1242 @@
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { 
+  ShoppingCart, Menu, X, Plus, Minus, ChevronLeft, ChevronRight, 
+  MapPin, Copy, CheckCircle2, AlertCircle, Settings, Package, 
+  ListOrdered, LogOut, Image as ImageIcon, Trash2, Edit3, Save, TrendingUp
+} from 'lucide-react';
+
+const injectStyles = () => {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Noto+Serif+TC:wght@400;600;700&display=swap');
+    
+    :root {
+      --bg-cream: #FDFBF7;
+      --accent-brown: #7A5C43;
+      --accent-blue: #4A6572;
+      --text-main: #333333;
+      --border-soft: #E5E0D8;
+    }
+    
+    body {
+      background-color: var(--bg-cream);
+      color: var(--text-main);
+      font-family: 'Noto Sans TC', sans-serif;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .font-serif {
+      font-family: 'Noto Serif TC', serif;
+    }
+
+    /* True Marquee Animation */
+    .marquee-container {
+      overflow: hidden;
+      white-space: nowrap;
+      width: 100%;
+      background: transparent;
+      border-bottom: 1px solid var(--border-soft);
+      padding: 8px 0;
+    }
+    
+    .marquee-content {
+      display: inline-block;
+      animation: marquee 20s linear infinite;
+      padding-left: 100%;
+    }
+    
+    @keyframes marquee {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(-100%, 0); }
+    }
+
+    /* Refined form inputs */
+    input, textarea, select {
+      border: 1px solid var(--border-soft);
+      background-color: transparent;
+      transition: all 0.2s;
+    }
+    input:focus, textarea:focus, select:focus {
+      outline: none;
+      border-color: var(--accent-brown);
+      box-shadow: 0 0 0 1px var(--accent-brown) inset;
+    }
+
+    /* Hide scrollbar for clean look */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1cbbd; border-radius: 3px; }
+    
+    .carousel-container {
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      border: 1px solid var(--border-soft);
+    }
+  `;
+  document.head.appendChild(style);
+};
+
+const initialProducts = [
+  {
+    id: 'p1',
+    name: '手臂公香魚',
+    note: '頂級尺寸，肉質細嫩',
+    desc: '來自雪山山脈湧泉養殖，水質純淨，肉質鮮甜無土味。適合鹽烤、清蒸。',
+    visible: true,
+    variants: [
+      { id: 'p1v1', name: '四尾盒裝', price: 350, stock: 20, images: ['https://images.unsplash.com/photo-1544378822-297eb0981977?auto=format&fit=crop&q=80&w=800'] },
+      { id: 'p1v2', name: '五尾盒裝', price: 300, stock: 15, images: ['https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&q=80&w=800'] },
+      { id: 'p1v3', name: '六尾盒裝', price: 300, stock: 0, images: ['https://images.unsplash.com/photo-1544378822-297eb0981977?auto=format&fit=crop&q=80&w=800'] },
+      { id: 'p1v4', name: '買四送一優惠組合', price: 1200, stock: 10, images: ['https://images.unsplash.com/photo-1544378822-297eb0981977?auto=format&fit=crop&q=80&w=800'] },
+    ]
+  },
+  {
+    id: 'p2',
+    name: '抱蛋母香魚',
+    note: '滿腹魚卵，口感豐富',
+    desc: '季節限定，魚卵飽滿，油脂豐富。',
+    visible: true,
+    variants: [
+      { id: 'p2v1', name: '尚未開賣', price: 0, stock: 0, images: ['https://images.unsplash.com/photo-1615141982883-c7ad0e69fd62?auto=format&fit=crop&q=80&w=800'] }
+    ]
+  },
+  {
+    id: 'p3',
+    name: '私房甘露煮',
+    note: '古法熬製，入口即化',
+    desc: '特製醬汁慢火熬煮數小時，骨酥肉嫩，下酒配飯皆宜。',
+    visible: true,
+    variants: [
+      { id: 'p3v1', name: '單一規格 (300g)', price: 350, stock: 30, images: ['https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?auto=format&fit=crop&q=80&w=800'] }
+    ]
+  }
+];
+
+const initialSettings = {
+  marqueeText: '🎉 滿$1500免運費！新鮮湧泉香魚產地直送。',
+  freeShippingThreshold: 1500,
+  logoUrl: '',
+  bankInfo: {
+    bankName: '玉山銀行',
+    bankCode: '808',
+    account: '1234-567-890123'
+  },
+  adminPass: 'ayuwanshan',
+  shippingFee: 150
+};
+
+const bankList = [
+  '004 台灣銀行', '005 土地銀行', '006 合作金庫', '007 第一銀行', '008 華南銀行', 
+  '009 彰化銀行', '011 上海商銀', '012 台北富邦', '013 國泰世華', '017 兆豐銀行', 
+  '050 台灣企銀', '808 玉山銀行', '812 台新銀行', '822 中國信託', '其他'
+];
+
+// Reusable Carousel Component
+const ImageCarousel = ({ images }) => {
+  const [idx, setIdx] = useState(0);
+  if (!images || images.length === 0) return <div className="w-full h-48 bg-[#f5f1e8] flex items-center justify-center text-gray-400">無圖片</div>;
+  
+  return (
+    <div className="carousel-container h-56 group">
+      <img src={images[idx]} alt="product" className="w-full h-full object-cover transition-opacity duration-300" />
+      {images.length > 1 && (
+        <>
+          <button onClick={() => setIdx(i => i === 0 ? images.length - 1 : i - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 p-1 bg-white/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+            <ChevronLeft size={16} />
+          </button>
+          <button onClick={() => setIdx(i => i === images.length - 1 ? 0 : i + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 bg-white/70 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+            <ChevronRight size={16} />
+          </button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+            {images.map((_, i) => (
+              <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === idx ? 'bg-amber-800' : 'bg-white/60'}`} />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// Notification Toast
+const Toast = ({ message, type = 'success' }) => (
+  <div className={`fixed top-20 left-1/2 -translate-x-1/2 px-4 py-2 rounded-md shadow-sm border bg-white flex items-center gap-2 z-50 animate-fade-in-down
+    ${type === 'success' ? 'border-green-200 text-green-700' : 'border-red-200 text-red-700'}`}>
+    {type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+    <span className="text-sm font-medium">{message}</span>
+  </div>
+);
+
+export default function App() {
+  const [isReady, setIsReady] = useState(false);
+  
+  // App States
+  const [view, setView] = useState('store'); // store, checkout, confirm, admin-login, admin
+  const [products, setProducts] = useState(initialProducts);
+  const [settings, setSettings] = useState(initialSettings);
+  const [cart, setCart] = useState([]);
+  const [orders, setOrders] = useState([]);
+  
+  // Checkout Form State (Persisted across view changes)
+  const [checkoutForm, setCheckoutForm] = useState({
+    name: '',
+    phone: '',
+    lineName: '', // Will attempt auto-fill if possible, else manual
+    deliveryType: 'home', // home, 711, pickup
+    paymentType: 'transfer', // transfer, cod, onsite
+    userBank: '',
+    accountLast5: '',
+    storeName: '',
+    pickupDate: '',
+    pickupTime: '',
+    note: ''
+  });
+
+  const [toast, setToast] = useState(null);
+
+  // Initialize
+  useEffect(() => {
+    injectStyles();
+    setIsReady(true);
+    
+    // Simulate LINE ID fetching
+    setTimeout(() => {
+      setCheckoutForm(prev => ({ ...prev, lineName: '' })); // Leave empty to show placeholder logic
+    }, 1000);
+  }, []);
+
+  // Scroll to top on view change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [view]);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ message: msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const addToCart = (productId, variantId, qty) => {
+    if (qty <= 0) return;
+    setCart(prev => {
+      const existing = prev.find(item => item.productId === productId && item.variantId === variantId);
+      if (existing) {
+        return prev.map(item => item.productId === productId && item.variantId === variantId 
+          ? { ...item, quantity: item.quantity + qty } : item);
+      }
+      return [...prev, { productId, variantId, quantity: qty }];
+    });
+    showToast('已加入購物車');
+  };
+
+  const updateCartQty = (productId, variantId, newQty) => {
+    if (newQty <= 0) {
+      setCart(prev => prev.filter(item => !(item.productId === productId && item.variantId === variantId)));
+    } else {
+      setCart(prev => prev.map(item => item.productId === productId && item.variantId === variantId 
+        ? { ...item, quantity: newQty } : item));
+    }
+  };
+
+  const cartDetails = useMemo(() => {
+    let subtotal = 0;
+    const items = cart.map(item => {
+      const product = products.find(p => p.id === item.productId);
+      const variant = product?.variants.find(v => v.id === item.variantId);
+      if (product && variant) {
+        subtotal += variant.price * item.quantity;
+        return { ...item, product, variant };
+      }
+      return null;
+    }).filter(Boolean);
+    
+    const isFreeShipping = subtotal >= settings.freeShippingThreshold;
+    const shippingFee = isFreeShipping || view === 'store' ? 0 : (checkoutForm.deliveryType === 'pickup' ? 0 : settings.shippingFee); // Assume 0 while in store, calc later
+    const total = subtotal + shippingFee;
+    
+    return { items, subtotal, shippingFee, total, isFreeShipping };
+  }, [cart, products, settings, checkoutForm.deliveryType, view]);
+
+  
+  // 1. Header (Global)
+  const renderHeader = () => (
+    <header className="fixed top-0 left-0 right-0 bg-white/90 backdrop-blur-md z-40 border-b border-[var(--border-soft)]">
+      <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setView('admin-login')} className="p-2 -ml-2 text-gray-400 hover:text-amber-800 transition-colors">
+            <Settings size={18} />
+          </button>
+          <div className="flex flex-col cursor-pointer" onClick={() => setView('store')}>
+            {settings.logoUrl && <img src={settings.logoUrl} alt="logo" className="h-6 w-auto mb-1" />}
+            <span className="font-serif font-bold text-lg text-amber-900 leading-tight">丸山湧泉香魚</span>
+            <span className="text-[10px] text-amber-700 uppercase tracking-widest leading-none">ayu wanshan</span>
+          </div>
+        </div>
+        
+        {view !== 'admin' && (
+          <button onClick={() => cart.length > 0 && setView('checkout')} className="relative p-2 text-[#4A6572] hover:bg-slate-50 rounded-full transition-colors border border-transparent hover:border-slate-200">
+            <ShoppingCart size={24} />
+            {cart.length > 0 && (
+              <span className="absolute top-0 right-0 bg-amber-700 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full transform translate-x-1 -translate-y-1">
+                {cart.reduce((a, c) => a + c.quantity, 0)}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
+      
+      {/* Real Marquee */}
+      {(view === 'store' || view === 'checkout') && (
+        <div className="marquee-container bg-[#fcfaf5]">
+          <div className="marquee-content text-sm text-amber-800 font-medium">
+            {settings.marqueeText}
+          </div>
+        </div>
+      )}
+    </header>
+  );
+
+  const renderStore = () => (
+    <div className="pt-40 pb-32 max-w-lg mx-auto px-4">
+      <div className="mb-8 flex items-center justify-center">
+        <h2 className="font-serif text-2xl text-[#4A6572] relative inline-block">
+          <span className="relative z-10 bg-[var(--bg-cream)] px-4">商品選購</span>
+          <span className="absolute top-1/2 left-0 w-full h-[1px] bg-[var(--border-soft)] -z-0"></span>
+        </h2>
+      </div>
+
+      <div className="space-y-8">
+        {products.filter(p => p.visible).map(product => (
+          <StoreProductCard key={product.id} product={product} onAdd={addToCart} />
+        ))}
+      </div>
+
+      {/* Floating Mini Cart */}
+      {cart.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-[var(--border-soft)] shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-40">
+          <div className="max-w-lg mx-auto p-4 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-sm text-gray-500">目前總計</span>
+              <span className="font-serif text-xl text-amber-900 font-bold">${cartDetails.subtotal}</span>
+              <span className="text-xs text-red-500 mt-1">
+                {cartDetails.isFreeShipping 
+                  ? '已達免運門檻 🎉' 
+                  : `差 $${settings.freeShippingThreshold - cartDetails.subtotal} 免運`}
+              </span>
+            </div>
+            <button 
+              onClick={() => setView('checkout')}
+              className="bg-[#4A6572] text-white px-8 py-3 rounded text-sm font-medium hover:bg-[#384c56] transition-colors border-none"
+            >
+              前往結帳
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderCheckout = () => (
+    <div className="pt-40 pb-20 max-w-lg mx-auto px-4">
+      <div className="mb-6 flex items-center">
+        <button onClick={() => setView('store')} className="p-2 -ml-2 text-gray-500 hover:text-amber-800">
+          <ChevronLeft size={24} />
+        </button>
+        <h2 className="font-serif text-xl text-amber-900 ml-2">結帳作業</h2>
+      </div>
+
+      {/* Cart Summary */}
+      <div className="border border-[var(--border-soft)] rounded-lg p-4 bg-white mb-6">
+        <div className="flex justify-between items-center mb-4 border-b border-[var(--border-soft)] pb-2">
+          <h3 className="font-medium text-[#4A6572]">購物車清單</h3>
+          <button onClick={() => setView('store')} className="text-xs text-amber-700 underline underline-offset-2">修改購物車</button>
+        </div>
+        <div className="space-y-3">
+          {cartDetails.items.map((item, idx) => (
+            <div key={idx} className="flex justify-between items-start text-sm">
+              <div>
+                <div className="font-medium text-gray-800">{item.product.name}</div>
+                <div className="text-gray-500 text-xs mt-0.5">{item.variant.name} x {item.quantity}</div>
+              </div>
+              <div className="font-serif text-amber-900">${item.variant.price * item.quantity}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Form Fields - using local vars to avoid ref issues, binding directly to state */}
+      <div className="space-y-6">
+        
+        {/* Buyer Info */}
+        <section className="border border-[var(--border-soft)] rounded-lg p-4 bg-white">
+          <h3 className="font-serif text-lg text-[#4A6572] mb-4">收件人基本資料</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">LINE 顯示名稱</label>
+              <input 
+                type="text" 
+                value={checkoutForm.lineName}
+                onChange={e => setCheckoutForm({...checkoutForm, lineName: e.target.value})}
+                placeholder="(若系統無自動抓取請手動填入)"
+                className="w-full p-2 text-sm rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">收件人姓名 <span className="text-red-500">*</span></label>
+              <input 
+                type="text" 
+                value={checkoutForm.name}
+                onChange={e => setCheckoutForm({...checkoutForm, name: e.target.value})}
+                className="w-full p-2 text-sm rounded"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">連絡電話 <span className="text-red-500">*</span></label>
+              <input 
+                type="tel" 
+                value={checkoutForm.phone}
+                onChange={e => setCheckoutForm({...checkoutForm, phone: e.target.value})}
+                className="w-full p-2 text-sm rounded"
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Delivery Options */}
+        <section className="border border-[var(--border-soft)] rounded-lg p-4 bg-white">
+          <h3 className="font-serif text-lg text-[#4A6572] mb-4">運送與付款方式</h3>
+          
+          <div className="grid grid-cols-3 gap-2 mb-6">
+            {['home', '711', 'pickup'].map((type) => (
+              <button
+                key={type}
+                onClick={() => setCheckoutForm({...checkoutForm, deliveryType: type, paymentType: type==='home'?'transfer':type==='711'?'cod':'onsite'})}
+                className={`p-2 text-sm text-center rounded border transition-colors ${checkoutForm.deliveryType === type ? 'bg-[#4A6572] text-white border-[#4A6572]' : 'border-[var(--border-soft)] text-gray-500 hover:bg-slate-50'}`}
+              >
+                {type === 'home' ? '宅配' : type === '711' ? '7-11店到店' : '預約自取'}
+              </button>
+            ))}
+          </div>
+
+          {/* Conditional Delivery Logic */}
+          <div className="space-y-4 animate-fade-in">
+            {checkoutForm.deliveryType === 'home' && (
+              <div className="bg-[#fcfaf5] p-3 rounded text-sm border border-[#eee7d5]">
+                <p className="font-medium text-amber-900 mb-2">宅配 (須先匯款)</p>
+                <div className="text-gray-600 space-y-1 mb-4 text-xs">
+                  <p>銀行：{settings.bankInfo.bankName} ({settings.bankInfo.bankCode})</p>
+                  <p className="flex items-center gap-2">
+                    帳號：{settings.bankInfo.account}
+                    <button onClick={() => { navigator.clipboard.writeText(settings.bankInfo.account); showToast('帳號已複製'); }} className="p-1 bg-white border rounded text-gray-400 hover:text-amber-800">
+                      <Copy size={12} />
+                    </button>
+                  </p>
+                </div>
+                <div className="space-y-3">
+                   <div>
+                    <label className="block text-xs text-gray-500 mb-1">您的匯款銀行</label>
+                    <select value={checkoutForm.userBank} onChange={e => setCheckoutForm({...checkoutForm, userBank: e.target.value})} className="w-full p-2 text-sm rounded bg-white">
+                      <option value="">請選擇</option>
+                      {bankList.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">匯款帳號後五碼</label>
+                    <input type="text" maxLength="5" value={checkoutForm.accountLast5} onChange={e => setCheckoutForm({...checkoutForm, accountLast5: e.target.value})} className="w-full p-2 text-sm rounded bg-white" placeholder="對帳用" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {checkoutForm.deliveryType === '711' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">付款方式</label>
+                  <select value={checkoutForm.paymentType} onChange={e => setCheckoutForm({...checkoutForm, paymentType: e.target.value})} className="w-full p-2 text-sm rounded">
+                    <option value="cod">貨到付款</option>
+                    <option value="transfer">先匯款後出貨</option>
+                  </select>
+                </div>
+                
+                {checkoutForm.paymentType === 'transfer' && (
+                  <div className="bg-[#fcfaf5] p-3 rounded text-sm border border-[#eee7d5] mb-4">
+                    <div className="text-gray-600 space-y-1 mb-4 text-xs">
+                      <p>銀行：{settings.bankInfo.bankName} ({settings.bankInfo.bankCode})</p>
+                      <p className="flex items-center gap-2">
+                        帳號：{settings.bankInfo.account}
+                        <button onClick={() => { navigator.clipboard.writeText(settings.bankInfo.account); showToast('帳號已複製'); }} className="p-1 bg-white border rounded text-gray-400 hover:text-amber-800"><Copy size={12} /></button>
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">您的匯款銀行</label>
+                        <select value={checkoutForm.userBank} onChange={e => setCheckoutForm({...checkoutForm, userBank: e.target.value})} className="w-full p-2 text-sm rounded bg-white">
+                          <option value="">請選擇</option>
+                          {bankList.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">匯款帳號後五碼</label>
+                        <input type="text" maxLength="5" value={checkoutForm.accountLast5} onChange={e => setCheckoutForm({...checkoutForm, accountLast5: e.target.value})} className="w-full p-2 text-sm rounded bg-white" placeholder="對帳用" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">預計寄達 7-11 門市 (名稱或店號)</label>
+                  <input type="text" value={checkoutForm.storeName} onChange={e => setCheckoutForm({...checkoutForm, storeName: e.target.value})} className="w-full p-2 text-sm rounded" placeholder="例如：丸山門市 或 123456" />
+                </div>
+              </div>
+            )}
+
+            {checkoutForm.deliveryType === 'pickup' && (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs text-gray-500 mb-1">自取日期</label>
+                    <input type="date" value={checkoutForm.pickupDate} onChange={e => setCheckoutForm({...checkoutForm, pickupDate: e.target.value})} className="w-full p-2 text-sm rounded" min={new Date().toISOString().split('T')[0]} />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs text-gray-500 mb-1">自取時段 (08:00-18:00)</label>
+                    <select value={checkoutForm.pickupTime} onChange={e => setCheckoutForm({...checkoutForm, pickupTime: e.target.value})} className="w-full p-2 text-sm rounded">
+                      <option value="">選擇時段</option>
+                      {Array.from({length: 21}).map((_, i) => {
+                        const hr = Math.floor(i/2) + 8;
+                        const min = i%2 === 0 ? '00' : '30';
+                        const time = `${hr.toString().padStart(2, '0')}:${min}`;
+                        return <option key={time} value={time}>{time}</option>;
+                      })}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-slate-100 rounded overflow-hidden border border-[var(--border-soft)]">
+                   <iframe 
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3615.002792610731!2d121.7371801!3d24.7574971!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMjTCsDQ1JzI3LjAiTiAxMjHCsDQ0JzEzLjgiRQ!5e0!3m2!1szh-TW!2stw!4v1620000000000!5m2!1szh-TW!2stw" 
+                    width="100%" height="150" style={{border:0}} allowFullScreen="" loading="lazy">
+                  </iframe>
+                  <div className="p-2 text-xs text-center text-[#4A6572] bg-white flex items-center justify-center gap-1">
+                    <MapPin size={12} /> <a href="https://share.google/4iC3doLLJMYrxQeFH" target="_blank" rel="noreferrer" className="underline">開啟 Google Map 導航</a>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">付款方式</label>
+                  <select value={checkoutForm.paymentType} onChange={e => setCheckoutForm({...checkoutForm, paymentType: e.target.value})} className="w-full p-2 text-sm rounded">
+                    <option value="onsite">現場付款</option>
+                    <option value="transfer">先匯款</option>
+                  </select>
+                </div>
+
+                {checkoutForm.paymentType === 'transfer' && (
+                  <div className="bg-[#fcfaf5] p-3 rounded text-sm border border-[#eee7d5] mt-2">
+                    <div className="text-gray-600 space-y-1 mb-4 text-xs">
+                      <p>銀行：{settings.bankInfo.bankName} ({settings.bankInfo.bankCode})</p>
+                      <p className="flex items-center gap-2">
+                        帳號：{settings.bankInfo.account}
+                        <button onClick={() => { navigator.clipboard.writeText(settings.bankInfo.account); showToast('帳號已複製'); }} className="p-1 bg-white border rounded text-gray-400 hover:text-amber-800"><Copy size={12} /></button>
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">您的匯款銀行</label>
+                        <select value={checkoutForm.userBank} onChange={e => setCheckoutForm({...checkoutForm, userBank: e.target.value})} className="w-full p-2 text-sm rounded bg-white">
+                          <option value="">請選擇</option>
+                          {bankList.map(b => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">匯款帳號後五碼</label>
+                        <input type="text" maxLength="5" value={checkoutForm.accountLast5} onChange={e => setCheckoutForm({...checkoutForm, accountLast5: e.target.value})} className="w-full p-2 text-sm rounded bg-white" placeholder="對帳用" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Order Notes */}
+        <section className="border border-[var(--border-soft)] rounded-lg p-4 bg-white">
+          <label className="block text-xs text-gray-500 mb-2">訂單備註</label>
+          <textarea 
+            rows="3" 
+            value={checkoutForm.note}
+            onChange={e => setCheckoutForm({...checkoutForm, note: e.target.value})}
+            className="w-full p-2 text-sm rounded resize-none" 
+            placeholder="有什麼想告訴賣家的嗎？"
+          ></textarea>
+        </section>
+
+        {/* Totals */}
+        <section className="border border-[var(--border-soft)] rounded-lg p-4 bg-[#fdfbf9]">
+          <div className="space-y-2 text-sm text-gray-600">
+            <div className="flex justify-between">
+              <span>商品小計</span>
+              <span>${cartDetails.subtotal}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>運費 ({checkoutForm.deliveryType === 'pickup' ? '自取' : '宅配/店到店'})</span>
+              <span>{cartDetails.shippingFee === 0 ? '免運' : `$${cartDetails.shippingFee}`}</span>
+            </div>
+            <div className="pt-2 mt-2 border-t border-[var(--border-soft)] flex justify-between items-center">
+              <span className="font-medium text-amber-900">總付款金額</span>
+              <span className="font-serif text-xl font-bold text-amber-900">${cartDetails.subtotal + cartDetails.shippingFee}</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Submit Action */}
+        <button 
+          onClick={() => {
+            if (!checkoutForm.name || !checkoutForm.phone) {
+              showToast('請填寫收件人姓名與電話', 'error'); return;
+            }
+            if (checkoutForm.paymentType === 'transfer' && (!checkoutForm.userBank || !checkoutForm.accountLast5)) {
+              showToast('請填寫匯款資訊', 'error'); return;
+            }
+            if (checkoutForm.deliveryType === '711' && !checkoutForm.storeName) {
+              showToast('請填寫門市資訊', 'error'); return;
+            }
+            if (checkoutForm.deliveryType === 'pickup' && (!checkoutForm.pickupDate || !checkoutForm.pickupTime)) {
+              showToast('請選擇自取時間', 'error'); return;
+            }
+            
+            // Generate Order ID
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const rnd = String(Math.floor(Math.random() * 99)).padStart(2, '0');
+            const orderId = `${yy}${mm}${dd}${min}${rnd}`;
+
+            const newOrder = {
+              id: orderId,
+              date: now.toISOString(),
+              status: 'pending', // pending, prep, shipped, done
+              customer: { ...checkoutForm },
+              items: [...cartDetails.items],
+              total: cartDetails.subtotal + cartDetails.shippingFee,
+              trackingNum: ''
+            };
+
+            setOrders([newOrder, ...orders]);
+            setView('confirm');
+          }}
+          className="w-full bg-amber-800 text-white py-4 rounded-md font-medium text-lg hover:bg-amber-900 transition-colors border-none mt-4"
+        >
+          送出訂單
+        </button>
+
+      </div>
+    </div>
+  );
+
+  const renderConfirm = () => {
+    const latestOrder = orders[0];
+    if (!latestOrder) return null;
+
+    const generateLineText = () => {
+      let text = `【丸山湧泉香魚 訂單確認】\n`;
+      text += `訂單編號：${latestOrder.id}\n`;
+      text += `姓名：${latestOrder.customer.name}\n`;
+      text += `電話：${latestOrder.customer.phone}\n`;
+      if (latestOrder.customer.lineName) text += `LINE：${latestOrder.customer.lineName}\n`;
+      
+      const dType = latestOrder.customer.deliveryType;
+      const pType = latestOrder.customer.paymentType;
+      text += `運送：${dType === 'home' ? '宅配' : dType === '711' ? '7-11店到店' : '預約自取'} `;
+      text += `(${pType === 'transfer' ? '匯款' : pType === 'cod' ? '貨到付款' : '現場付款'})\n`;
+      
+      if (dType === 'pickup') text += `自取時間：${latestOrder.customer.pickupDate} ${latestOrder.customer.pickupTime}\n`;
+      if (dType === '711') text += `門市：${latestOrder.customer.storeName}\n`;
+      if (pType === 'transfer') text += `匯款後五碼：${latestOrder.customer.userBank} - ${latestOrder.customer.accountLast5}\n`;
+      
+      text += `\n【商品明細】\n`;
+      latestOrder.items.forEach(item => {
+        text += `- ${item.product.name} (${item.variant.name}) x${item.quantity}\n`;
+      });
+      text += `\n總金額：$${latestOrder.total}`;
+      
+      if(latestOrder.customer.note) text += `\n備註：${latestOrder.customer.note}`;
+      
+      return encodeURIComponent(text);
+    };
+
+    return (
+      <div className="pt-40 pb-20 max-w-lg mx-auto px-4 flex flex-col items-center">
+        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
+          <CheckCircle2 size={32} />
+        </div>
+        <h2 className="font-serif text-2xl text-amber-900 mb-1">訂單已成功送出！</h2>
+        <p className="text-sm text-gray-500 mb-8">訂單資料已記錄，請透過下方按鈕傳送給商家。</p>
+
+        <div className="w-full border border-[var(--border-soft)] rounded-lg p-5 bg-white mb-8 space-y-3">
+          <div className="flex justify-between border-b border-[var(--border-soft)] pb-3">
+            <span className="text-gray-500 text-sm">訂單編號</span>
+            <span className="font-medium font-serif text-[#4A6572]">{latestOrder.id}</span>
+          </div>
+          <div className="text-sm space-y-2 text-gray-700">
+            <p><span className="text-gray-400 w-16 inline-block">姓名</span> {latestOrder.customer.name}</p>
+            <p><span className="text-gray-400 w-16 inline-block">金額</span> <span className="text-amber-800 font-bold">${latestOrder.total}</span></p>
+          </div>
+        </div>
+
+        <a 
+          href={`line://msg/text/?${generateLineText()}`}
+          className="w-full bg-[#00B900] text-white py-4 rounded-md font-medium text-center hover:bg-[#009900] transition-colors mb-4 flex items-center justify-center gap-2"
+        >
+          將訂單資料傳送給商家 (LINE)
+        </a>
+
+        <div className="flex gap-4 w-full">
+          <button 
+            onClick={() => { setCart([]); setView('store'); }}
+            className="flex-1 border border-amber-800 text-amber-800 py-3 rounded-md font-medium text-sm hover:bg-amber-50 transition-colors"
+          >
+            返回繼續訂購
+          </button>
+          <a 
+            href="https://lin.ee/xQ1XPT9"
+            target="_blank" rel="noreferrer"
+            className="flex-1 border border-[#4A6572] text-[#4A6572] py-3 rounded-md font-medium text-sm text-center hover:bg-slate-50 transition-colors"
+          >
+            官方 LINE 聊天室
+          </a>
+        </div>
+      </div>
+    );
+  };
+
+  const [adminPassInput, setAdminPassInput] = useState('');
+  const [adminTab, setAdminTab] = useState('orders'); // orders, products, settings
+
+  const renderAdminLogin = () => (
+    <div className="pt-32 pb-20 max-w-sm mx-auto px-4 flex flex-col items-center">
+      <div className="w-12 h-12 bg-slate-100 text-[#4A6572] rounded-full flex items-center justify-center mb-6">
+        <Settings size={24} />
+      </div>
+      <h2 className="font-serif text-xl text-amber-900 mb-6">商家後台登入</h2>
+      <input 
+        type="password" 
+        value={adminPassInput}
+        onChange={e => setAdminPassInput(e.target.value)}
+        placeholder="請輸入管理員密碼"
+        className="w-full p-3 border border-[var(--border-soft)] rounded mb-4 text-center tracking-widest"
+      />
+      <div className="flex gap-2 w-full">
+         <button 
+          onClick={() => setView('store')}
+          className="flex-1 border border-gray-300 text-gray-500 py-3 rounded hover:bg-gray-50 transition-colors"
+        >
+          取消
+        </button>
+        <button 
+          onClick={() => {
+            if (adminPassInput === settings.adminPass) {
+              setView('admin');
+              setAdminPassInput('');
+              showToast('登入成功');
+            } else {
+              showToast('密碼錯誤', 'error');
+            }
+          }}
+          className="flex-1 bg-[#4A6572] text-white py-3 rounded hover:bg-[#384c56] transition-colors"
+        >
+          登入
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderAdmin = () => (
+    <div className="min-h-screen bg-slate-50 pt-4 pb-20">
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Admin Header */}
+        <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-lg shadow-sm border border-[var(--border-soft)]">
+          <h2 className="font-serif text-xl text-amber-900 font-bold">管理控制台</h2>
+          <button onClick={() => setView('store')} className="flex items-center gap-1 text-sm text-gray-500 hover:text-red-500">
+            <LogOut size={16} /> 登出返回
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          {[
+            { id: 'orders', icon: <ListOrdered size={16}/>, label: '訂單管理' },
+            { id: 'products', icon: <Package size={16}/>, label: '商品管理' },
+            { id: 'settings', icon: <Settings size={16}/>, label: '全域設定' }
+          ].map(t => (
+            <button 
+              key={t.id}
+              onClick={() => setAdminTab(t.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors
+                ${adminTab === t.id ? 'bg-[#4A6572] text-white' : 'bg-white text-gray-500 border border-[var(--border-soft)] hover:bg-slate-100'}`}
+            >
+              {t.icon} {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content Rendering */}
+        <div className="bg-white rounded-lg shadow-sm border border-[var(--border-soft)] p-4 sm:p-6 min-h-[50vh]">
+          {adminTab === 'orders' && <AdminOrdersTab orders={orders} setOrders={setOrders} />}
+          {adminTab === 'products' && <AdminProductsTab products={products} setProducts={setProducts} showToast={showToast} />}
+          {adminTab === 'settings' && <AdminSettingsTab settings={settings} setSettings={setSettings} showToast={showToast} />}
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!isReady) return null;
+
+  return (
+    <div className="min-h-screen flex flex-col font-sans">
+      {view !== 'admin' && view !== 'admin-login' && renderHeader()}
+      
+      <main className="flex-grow w-full relative">
+        {view === 'store' && renderStore()}
+        {view === 'checkout' && renderCheckout()}
+        {view === 'confirm' && renderConfirm()}
+        {view === 'admin-login' && renderAdminLogin()}
+        {view === 'admin' && renderAdmin()}
+      </main>
+
+      {/* Global Toast */}
+      {toast && <Toast message={toast.message} type={toast.type} />}
+    </div>
+  );
+}
+
+
+// --- Store Product Card ---
+const StoreProductCard = ({ product, onAdd }) => {
+  const [selectedVariant, setSelectedVariant] = useState(product.variants[0]);
+  const [qty, setQty] = useState(1);
+
+  // Reset variant if product changes somehow
+  useEffect(() => {
+    setSelectedVariant(product.variants[0]);
+    setQty(1);
+  }, [product]);
+
+  return (
+    <div className="bg-white rounded-xl border border-[var(--border-soft)] overflow-hidden shadow-sm flex flex-col group">
+      <div className="p-4 border-b border-[var(--border-soft)]">
+        <span className="text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded inline-block mb-2 font-medium">{product.note}</span>
+        <h3 className="font-serif text-xl text-[#4A6572] font-bold mb-1">{product.name}</h3>
+        <p className="text-sm text-gray-500 leading-relaxed">{product.desc}</p>
+      </div>
+      
+      <div className="p-4 flex flex-col sm:flex-row gap-4">
+        <div className="w-full sm:w-1/2">
+          <ImageCarousel images={selectedVariant?.images || []} />
+        </div>
+        
+        <div className="w-full sm:w-1/2 flex flex-col justify-between space-y-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">選擇規格</label>
+            <select 
+              className="w-full p-2 border border-[var(--border-soft)] rounded text-sm bg-white focus:border-amber-800 outline-none"
+              value={selectedVariant?.id}
+              onChange={(e) => {
+                const v = product.variants.find(x => x.id === e.target.value);
+                setSelectedVariant(v);
+                setQty(1);
+              }}
+            >
+              {product.variants.map(v => (
+                <option key={v.id} value={v.id} disabled={v.stock === 0}>
+                  {v.name} - ${v.price} {v.stock === 0 ? '(補貨中)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-end justify-between gap-4">
+            <div className="flex-1">
+               <label className="block text-xs text-gray-500 mb-1">數量</label>
+               <div className="flex items-center border border-[var(--border-soft)] rounded overflow-hidden h-10">
+                 <button onClick={() => setQty(q => Math.max(1, q - 1))} className="px-3 bg-slate-50 text-gray-600 hover:bg-slate-100 h-full flex items-center justify-center border-r border-[var(--border-soft)]" disabled={selectedVariant?.stock === 0}><Minus size={14}/></button>
+                 <span className="flex-1 text-center text-sm font-medium bg-white">{selectedVariant?.stock === 0 ? 0 : qty}</span>
+                 <button onClick={() => setQty(q => Math.min(selectedVariant?.stock || 0, q + 1))} className="px-3 bg-slate-50 text-gray-600 hover:bg-slate-100 h-full flex items-center justify-center border-l border-[var(--border-soft)]" disabled={selectedVariant?.stock === 0}><Plus size={14}/></button>
+               </div>
+            </div>
+            
+            <button 
+              onClick={() => onAdd(product.id, selectedVariant.id, qty)}
+              disabled={selectedVariant?.stock === 0}
+              className={`h-10 px-6 rounded text-sm font-medium transition-colors whitespace-nowrap
+                ${selectedVariant?.stock === 0 
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+                  : 'bg-amber-800 text-white hover:bg-amber-900 shadow-sm'}`}
+            >
+              {selectedVariant?.stock === 0 ? '補貨中' : '加入購物車'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Admin Orders Tab ---
+const AdminOrdersTab = ({ orders, setOrders }) => {
+  const [subTab, setSubTab] = useState('pending'); // pending, prep, shipped, done, stats
+  
+  const filteredOrders = orders.filter(o => subTab === 'stats' ? true : o.status === subTab);
+
+  const updateStatus = (id, newStatus) => {
+    setOrders(orders.map(o => o.id === id ? { ...o, status: newStatus } : o));
+  };
+
+  const deleteOrder = (id) => {
+    if(confirm('確定刪除此訂單？')) setOrders(orders.filter(o => o.id !== id));
+  };
+
+  if (subTab === 'stats') return <AdminOrderStats orders={orders} onBack={() => setSubTab('pending')} />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2 mb-4 border-b border-[var(--border-soft)] pb-4">
+        {['pending:對帳中', 'prep:備貨中', 'shipped:已出貨', 'done:已完成', 'stats:報表統計'].map(opt => {
+          const [val, label] = opt.split(':');
+          return (
+            <button key={val} onClick={() => setSubTab(val)} className={`px-3 py-1.5 rounded text-sm transition-colors ${subTab === val ? 'bg-[#4A6572] text-white' : 'bg-slate-100 text-gray-600 hover:bg-slate-200'}`}>
+              {label} {val !== 'stats' && `(${orders.filter(o=>o.status===val).length})`}
+            </button>
+          );
+        })}
+      </div>
+
+      {filteredOrders.length === 0 ? (
+        <div className="text-center py-10 text-gray-400 text-sm">此狀態尚無訂單</div>
+      ) : (
+        <div className="space-y-4">
+          {filteredOrders.map(order => (
+            <div key={order.id} className="border border-[var(--border-soft)] rounded-lg p-4 bg-[#fcfaf5]">
+              <div className="flex justify-between items-start mb-3 border-b border-[var(--border-soft)] pb-2">
+                <div>
+                  <span className="font-serif text-lg font-bold text-amber-900 mr-2">#{order.id}</span>
+                  <span className="text-xs text-gray-500">{new Date(order.date).toLocaleString()}</span>
+                </div>
+                <div className="flex gap-2">
+                  <select 
+                    value={order.status} 
+                    onChange={(e) => updateStatus(order.id, e.target.value)}
+                    className="text-xs p-1 border rounded bg-white text-gray-700"
+                  >
+                    <option value="pending">對帳中</option>
+                    <option value="prep">備貨中</option>
+                    <option value="shipped">已出貨</option>
+                    <option value="done">已完成</option>
+                  </select>
+                  <button onClick={() => deleteOrder(order.id)} className="p-1 text-red-400 hover:bg-red-50 rounded"><Trash2 size={16}/></button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm mb-3">
+                <div>
+                  <p className="text-gray-500 mb-1">客戶資訊</p>
+                  <p className="font-medium">{order.customer.name} / {order.customer.phone}</p>
+                  <p className="text-xs text-gray-400">LINE: {order.customer.lineName || '-'}</p>
+                </div>
+                <div>
+                   <p className="text-gray-500 mb-1">配送方式</p>
+                   <p className="font-medium">
+                     {order.customer.deliveryType === 'home' ? '宅配' : order.customer.deliveryType === '711' ? '7-11店到店' : '預約自取'}
+                     ({order.customer.paymentType === 'transfer' ? '匯款' : order.customer.paymentType === 'cod' ? '貨到付款' : '現場付款'})
+                   </p>
+                   {order.customer.deliveryType === '711' && <p className="text-xs text-gray-600">門市: {order.customer.storeName}</p>}
+                   {order.customer.deliveryType === 'pickup' && <p className="text-xs text-gray-600">時間: {order.customer.pickupDate} {order.customer.pickupTime}</p>}
+                   {order.customer.paymentType === 'transfer' && <p className="text-xs text-gray-600">後五碼: {order.customer.accountLast5}</p>}
+                </div>
+              </div>
+
+              <div className="bg-white p-2 rounded border border-[var(--border-soft)] mb-2">
+                <p className="text-xs text-gray-400 mb-1">訂購內容</p>
+                {order.items.map((item, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span>{item.product.name} ({item.variant.name})</span>
+                    <span>x{item.quantity}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-between items-center mt-2 pt-2 border-t border-[var(--border-soft)]">
+                <p className="text-xs text-gray-500">備註: {order.customer.note || '無'}</p>
+                <p className="font-bold text-amber-900">總計: ${order.total}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const AdminOrderStats = ({ orders, onBack }) => {
+  const [period, setPeriod] = useState('all'); // all, year, half, month, week, day
+
+  const filtered = useMemo(() => {
+    const now = new Date();
+    return orders.filter(o => {
+      if (period === 'all') return true;
+      const d = new Date(o.date);
+      const diff = now - d;
+      const days = diff / (1000 * 60 * 60 * 24);
+      if (period === 'year') return days <= 365;
+      if (period === 'half') return days <= 180;
+      if (period === 'month') return days <= 30;
+      if (period === 'week') return days <= 7;
+      if (period === 'day') return days <= 1;
+      return true;
+    });
+  }, [orders, period]);
+
+  const stats = useMemo(() => {
+    const res = {};
+    filtered.forEach(o => {
+      o.items.forEach(item => {
+        const key = `${item.product.name} - ${item.variant.name}`;
+        if (!res[key]) res[key] = { qty: 0, revenue: 0 };
+        res[key].qty += item.quantity;
+        res[key].revenue += (item.variant.price * item.quantity);
+      });
+    });
+    return res;
+  }, [filtered]);
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-4 pb-4 border-b border-[var(--border-soft)]">
+        <button onClick={onBack} className="text-sm text-gray-500 flex items-center hover:text-amber-800"><ChevronLeft size={16}/> 返回列表</button>
+        <h3 className="font-serif text-lg font-bold text-[#4A6572] flex items-center gap-2"><TrendingUp size={20}/> 銷售統計</h3>
+      </div>
+      
+      <div className="mb-6 flex flex-wrap gap-2">
+        {['all:全部', 'year:一年內', 'half:半年內', 'month:一個月內', 'week:一週內', 'day:一天內'].map(opt => {
+          const [val, label] = opt.split(':');
+          return (
+            <button key={val} onClick={() => setPeriod(val)} className={`px-3 py-1 rounded text-xs transition-colors ${period === val ? 'bg-amber-800 text-white' : 'bg-slate-100 text-gray-600 hover:bg-slate-200'}`}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="bg-white border border-[var(--border-soft)] rounded-lg overflow-hidden">
+        <table className="w-full text-sm text-left">
+          <thead className="bg-[#fcfaf5] text-gray-600 border-b border-[var(--border-soft)]">
+            <tr>
+              <th className="p-3 font-medium">商品與規格</th>
+              <th className="p-3 font-medium text-right">銷售數量</th>
+              <th className="p-3 font-medium text-right">銷售額</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.keys(stats).length === 0 ? (
+              <tr><td colSpan="3" className="p-4 text-center text-gray-400">此區間無資料</td></tr>
+            ) : (
+              Object.entries(stats).sort((a,b) => b[1].revenue - a[1].revenue).map(([key, data]) => (
+                <tr key={key} className="border-b border-[var(--border-soft)] last:border-0 hover:bg-slate-50">
+                  <td className="p-3 text-gray-700">{key}</td>
+                  <td className="p-3 text-right font-medium">{data.qty}</td>
+                  <td className="p-3 text-right text-amber-900">${data.revenue}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// --- Admin Products Tab ---
+const AdminProductsTab = ({ products, setProducts, showToast }) => {
+  const [editingId, setEditingId] = useState(null);
+
+  const toggleVisibility = (id) => {
+    setProducts(products.map(p => p.id === id ? { ...p, visible: !p.visible } : p));
+  };
+
+  const handleUpdate = (updatedProduct) => {
+    setProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+    setEditingId(null);
+    showToast('商品已更新');
+  };
+
+  if (editingId) {
+    const prod = products.find(p => p.id === editingId);
+    return <AdminProductEditor product={prod} onSave={handleUpdate} onCancel={() => setEditingId(null)} />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center mb-4">
+        <p className="text-sm text-gray-500">管理前台商品陳列與庫存</p>
+        <button className="flex items-center gap-1 bg-[#4A6572] text-white px-3 py-1.5 rounded text-sm hover:bg-[#384c56]" onClick={() => showToast('展示版本暫不開放新增全新商品，請編輯現有項目')}>
+          <Plus size={16}/> 新增商品
+        </button>
+      </div>
+
+      {products.map(p => (
+        <div key={p.id} className="border border-[var(--border-soft)] rounded-lg p-4 bg-white flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-sm transition-shadow">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`w-2 h-2 rounded-full ${p.visible ? 'bg-green-500' : 'bg-gray-300'}`}></span>
+              <h4 className="font-serif font-bold text-[#4A6572] text-lg">{p.name}</h4>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">{p.note}</p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {p.variants.map(v => (
+                <span key={v.id} className="bg-slate-100 px-2 py-1 rounded text-gray-600 border border-slate-200">
+                  {v.name} : ${v.price} (庫存:{v.stock})
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+             <button onClick={() => toggleVisibility(p.id)} className={`flex-1 sm:flex-none px-3 py-1.5 rounded border text-sm ${p.visible ? 'border-amber-800 text-amber-800' : 'bg-gray-100 text-gray-500 border-gray-200'}`}>
+               {p.visible ? '下架' : '上架'}
+             </button>
+             <button onClick={() => setEditingId(p.id)} className="flex-1 sm:flex-none flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-slate-100 text-[#4A6572] hover:bg-slate-200 text-sm">
+               <Edit3 size={16}/> 編輯
+             </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const AdminProductEditor = ({ product, onSave, onCancel }) => {
+  const [form, setForm] = useState(JSON.parse(JSON.stringify(product))); // Deep copy
+
+  const updateVariant = (idx, field, value) => {
+    const newVars = [...form.variants];
+    newVars[idx][field] = field === 'price' || field === 'stock' ? Number(value) : value;
+    setForm({ ...form, variants: newVars });
+  };
+
+  const updateImages = (idx, imgString) => {
+    const newVars = [...form.variants];
+    newVars[idx].images = imgString.split(',').map(s => s.trim()).filter(Boolean);
+    setForm({ ...form, variants: newVars });
+  };
+
+  return (
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex justify-between items-center mb-4 border-b border-[var(--border-soft)] pb-4">
+        <h3 className="font-serif text-lg font-bold text-amber-900">編輯商品</h3>
+        <div className="flex gap-2">
+          <button onClick={onCancel} className="px-3 py-1.5 rounded border text-gray-600 text-sm hover:bg-slate-50">取消</button>
+          <button onClick={() => onSave(form)} className="px-3 py-1.5 rounded bg-[#4A6572] text-white text-sm flex items-center gap-1 hover:bg-[#384c56]"><Save size={16}/> 儲存</button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-3">
+          <div><label className="text-xs text-gray-500 block">品名</label><input type="text" value={form.name} onChange={e=>setForm({...form, name: e.target.value})} className="w-full p-2 border rounded text-sm"/></div>
+          <div><label className="text-xs text-gray-500 block">註解 (小標)</label><input type="text" value={form.note} onChange={e=>setForm({...form, note: e.target.value})} className="w-full p-2 border rounded text-sm"/></div>
+          <div><label className="text-xs text-gray-500 block">詳細敘述</label><textarea rows="3" value={form.desc} onChange={e=>setForm({...form, desc: e.target.value})} className="w-full p-2 border rounded text-sm resize-none"/></div>
+        </div>
+        
+        <div className="space-y-4 bg-[#fcfaf5] p-4 rounded border border-[var(--border-soft)] max-h-[60vh] overflow-y-auto">
+          <h4 className="text-sm font-bold text-[#4A6572] mb-2 border-b border-[var(--border-soft)] pb-2">規格與庫存管理</h4>
+          {form.variants.map((v, i) => (
+            <div key={v.id} className="bg-white p-3 rounded border border-slate-200 space-y-2">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-3 sm:col-span-1"><label className="text-xs text-gray-500">規格名稱</label><input type="text" value={v.name} onChange={e=>updateVariant(i, 'name', e.target.value)} className="w-full p-1.5 border rounded text-xs"/></div>
+                <div className="col-span-1 sm:col-span-1"><label className="text-xs text-gray-500">價格</label><input type="number" value={v.price} onChange={e=>updateVariant(i, 'price', e.target.value)} className="w-full p-1.5 border rounded text-xs"/></div>
+                <div className="col-span-1 sm:col-span-1"><label className="text-xs text-gray-500">庫存</label><input type="number" value={v.stock} onChange={e=>updateVariant(i, 'stock', e.target.value)} className="w-full p-1.5 border rounded text-xs"/></div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 flex items-center gap-1"><ImageIcon size={12}/> 圖片網址 (多張請用逗號分隔)</label>
+                <input type="text" value={v.images.join(', ')} onChange={e=>updateImages(i, e.target.value)} placeholder="https://..., https://..." className="w-full p-1.5 border rounded text-xs font-mono"/>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Admin Settings Tab ---
+const AdminSettingsTab = ({ settings, setSettings, showToast }) => {
+  const [form, setForm] = useState({ ...settings });
+
+  const saveSettings = () => {
+    setSettings(form);
+    showToast('全域設定已儲存');
+  };
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      
+      <section className="space-y-4 border border-[var(--border-soft)] p-4 rounded-lg bg-white">
+        <h3 className="font-serif text-lg text-[#4A6572] border-b border-[var(--border-soft)] pb-2">網站外觀與跑馬燈</h3>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">跑馬燈文字 (即時顯示於頂部)</label>
+          <input type="text" value={form.marqueeText} onChange={e=>setForm({...form, marqueeText: e.target.value})} className="w-full p-2 border rounded text-sm"/>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Logo 圖片網址 (留空則顯示純文字)</label>
+          <input type="text" value={form.logoUrl} onChange={e=>setForm({...form, logoUrl: e.target.value})} className="w-full p-2 border rounded text-sm"/>
+        </div>
+      </section>
+
+      <section className="space-y-4 border border-[var(--border-soft)] p-4 rounded-lg bg-white">
+        <h3 className="font-serif text-lg text-[#4A6572] border-b border-[var(--border-soft)] pb-2">結帳與運費設定</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">免運門檻金額</label>
+            <input type="number" value={form.freeShippingThreshold} onChange={e=>setForm({...form, freeShippingThreshold: Number(e.target.value)})} className="w-full p-2 border rounded text-sm"/>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">基本運費</label>
+            <input type="number" value={form.shippingFee} onChange={e=>setForm({...form, shippingFee: Number(e.target.value)})} className="w-full p-2 border rounded text-sm"/>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 border border-[var(--border-soft)] p-4 rounded-lg bg-[#fcfaf5]">
+        <h3 className="font-serif text-lg text-amber-900 border-b border-[var(--border-soft)] pb-2">匯款帳戶設定</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">銀行代號</label>
+            <input type="text" value={form.bankInfo.bankCode} onChange={e=>setForm({...form, bankInfo:{...form.bankInfo, bankCode: e.target.value}})} className="w-full p-2 border rounded text-sm"/>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">銀行名稱</label>
+            <input type="text" value={form.bankInfo.bankName} onChange={e=>setForm({...form, bankInfo:{...form.bankInfo, bankName: e.target.value}})} className="w-full p-2 border rounded text-sm"/>
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-500 mb-1">匯款帳號</label>
+            <input type="text" value={form.bankInfo.account} onChange={e=>setForm({...form, bankInfo:{...form.bankInfo, account: e.target.value}})} className="w-full p-2 border rounded text-sm"/>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 border border-red-100 p-4 rounded-lg bg-white">
+        <h3 className="font-serif text-lg text-red-700 border-b border-red-100 pb-2">安全設定</h3>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">後台登入密碼 (修改後需重新登入)</label>
+          <input type="text" value={form.adminPass} onChange={e=>setForm({...form, adminPass: e.target.value})} className="w-full p-2 border rounded text-sm"/>
+        </div>
+      </section>
+
+      <button onClick={saveSettings} className="w-full bg-[#4A6572] text-white py-3 rounded-md font-medium hover:bg-[#384c56] transition-colors flex items-center justify-center gap-2">
+        <Save size={18}/> 儲存所有設定
+      </button>
+
+    </div>
+  );
+};
